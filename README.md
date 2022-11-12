@@ -1,2 +1,2 @@
 # schuberts_leader
-&lt;&lt;under construction>> A Lightweight Framework for Discovering Leading Indicator Variables
+&lt;&lt;under construction>> A Lightweight, Low-Dependency Framework for Discovering Leading Indicator Variables
