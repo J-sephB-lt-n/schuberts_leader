@@ -1,3 +1,6 @@
+import numpy as np
+
+
 class leading_indicator_miner:
     """
     object for mining data in search of non-linear leading time series indicators (possibly multivariate)
@@ -79,12 +82,18 @@ class leading_indicator_miner:
             # choose random model hyperparameters for this iteration #
             predictor_varname_this_iter = np.random.choice(X_varnames)
             predictor_idx_this_iter = X_varnames.index(predictor_varname_this_iter)
-            lag_this_iter = np.random.randint(
-                low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
-            )
-            n_knots_this_iter = np.random.randint(
-                low=self.n_knots["min"], high=self.n_knots["max"]
-            )
+            if n_lags_to_consider["min"] == n_lags_to_consider["max"]:
+                lag_this_iter = n_lags_to_consider["min"]
+            else:
+                lag_this_iter = np.random.randint(
+                    low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
+                )
+            if self.n_knots["min"] == self.n_knots["max"]:
+                n_knots_this_iter = self.n_knots["min"]
+            else:
+                n_knots_this_iter = np.random.randint(
+                    low=self.n_knots["min"], high=self.n_knots["max"]
+                )
 
             # illustration of how features are lagged:
             """
@@ -214,7 +223,7 @@ class leading_indicator_miner:
             )
 
             print(
-                f"\riteration {i+1} best MSE: {self.best_mse_seen_in_training:.3f}",
+                f"\riteration {i+1} of {n_iterations}. best MSE: {self.best_mse_seen_in_training:.3f}",
                 end="",
                 flush=True,
             )
