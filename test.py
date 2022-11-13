@@ -48,7 +48,7 @@ class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
         )
         X_data[:, perfect_indicator_idx[3]] = np.concatenate(
             [
-                np.log(y_vec[perfect_indicator_lags[3] :]),
+                (y_vec[perfect_indicator_lags[3] :]) ** 2 / 10,
                 X_data[
                     (len(X_data) - perfect_indicator_lags[3]) :,
                     perfect_indicator_idx[3],
@@ -57,7 +57,7 @@ class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
         )
         X_data[:, perfect_indicator_idx[4]] = np.concatenate(
             [
-                np.sin(y_vec[perfect_indicator_lags[4] :] / np.pi * 20),
+                y_vec[perfect_indicator_lags[4] :] ** 3,
                 X_data[
                     (len(X_data) - perfect_indicator_lags[4]) :,
                     perfect_indicator_idx[4],
