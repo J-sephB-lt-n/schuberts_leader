@@ -16,7 +16,7 @@ class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
         )
         perfect_indicator_varnames = [X_names[i] for i in perfect_indicator_idx]
         perfect_indicator_lags = np.random.choice(
-            [5, 6, 7], size=len(perfect_indicator_varnames), replace=True
+            [6], size=len(perfect_indicator_varnames), replace=True
         )
         y_vec = np.random.uniform(low=0, high=100, size=len(X_data))
         X_data[:, perfect_indicator_idx[0]] = np.concatenate(
