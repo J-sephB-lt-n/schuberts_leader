@@ -26,6 +26,50 @@ def mean_squared_error(y_true, y_pred):
     return np.sum((y_pred - y_true) ** 2)
 
 
+def simulate_leading_indicator_data(
+    n_samples,
+    n_predictors,
+    n_leading_indicators,
+    noise_sd_min_max,
+    polynomial_coefs_min_max,
+):
+    """
+    this function simulates data containing (possibly) noisy leading indicators having a leading cubic polynomial relationship with the response variable (y)
+
+    Parameters
+    ----------
+    n_samples : int
+        number of time points to simulate
+    n_predictors : int
+        number of predictor variables to simulate
+    n_leading_indicators : int
+        number of leading indicator variables to include. Must be smaller or equal to [n_predictors]
+    noise_sd_min_max : tuple containing 2 floats
+        e.g. noise_sd_min_max=(0.1, 5.0)
+        the smallest and largest standard deviation of random gaussian noise to be added to the leading indicators
+        (a random value is chosen from this range once for each leading indicator)
+    polynomial_coefs_min_max : tuple containing 3 tuples containing 2 floats
+        e.g. polynomial_coefs_min_max=( (-10,10), (-1,1), (-0.1,0.1) )
+        the simulated leading effect between leading indicator X and (lagged) outcome Y is given by X += aY + bY^2 + cY^3
+        the coefficients a, b and c are randomly drawn for each simulated leading indicator from the range defined by polynomial_coefs_min_max=( (MIN(a),MAX(a)), (MIN(b),MAX(b)), (MIN(c),MAX(c)) )
+
+    Returns
+    ----------
+    str, numpy.array(), numpy.array()
+        the first element is a string describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
+        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_samples,)
+        the third element is a 2-D numpy array, of shape (n_samples, n_predictors)
+    """
+    assert (
+        n_predictors >= n_leading_indicators
+    ), "number of leading indicators must be less than or equal to n_predictors"
+    y_vec = np.random.uniform(low=-100, high=100, size=n_samples)
+    leading_indicator_idx = np.random.choice(
+        range(n_predictors), size=n_leading_indicators, replace=False
+    )
+    X_matrix = np.random.uniform(low=-100, high=100, size=(n_samples, n_predictors))
+
+
 class leading_indicator_miner:
     """
     A class containing a model which searches data for leading indicator variables
