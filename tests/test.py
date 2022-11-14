@@ -1,6 +1,9 @@
+import sys
+
+sys.path.append("..")  # add the root project folder to the system path
 import unittest
 import numpy as np
-from src.model_class import leading_indicator_miner
+from src.model_class import create_linear_splines, leading_indicator_miner
 
 
 class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
@@ -9,14 +12,14 @@ class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
         Test whether the leading_indicator_miner can discover deterministic leading indicators hidden in the data
         ..and closely model their relationship to the response (y)
         """
-        X_data = np.random.random((10_000, 20)) * 100
+        X_data = np.random.random((5_000, 20)) * 100
         X_names = [f"x_{i}" for i in range(X_data.shape[1])]
         perfect_indicator_idx = np.random.choice(
             range(len(X_names)), size=5, replace=False
         )
         perfect_indicator_varnames = [X_names[i] for i in perfect_indicator_idx]
         perfect_indicator_lags = np.random.choice(
-            [6], size=len(perfect_indicator_varnames), replace=True
+            [5, 6, 7], size=len(perfect_indicator_varnames), replace=True
         )
         y_vec = np.random.uniform(low=0, high=100, size=len(X_data))
         X_data[:, perfect_indicator_idx[0]] = np.concatenate(
@@ -77,7 +80,7 @@ class TestMinerDiscoversDeterministicIndicators(unittest.TestCase):
             X_varnames=X_names,  # [X_names[i] for i in perfect_indicator_idx],
             y=y_vec,
             y_varname="outcome_y",
-            n_iterations=1_000,
+            n_iterations=2_000,
             n_lags_to_consider={
                 "min": perfect_indicator_lags.min(),
                 "max": perfect_indicator_lags.max(),
