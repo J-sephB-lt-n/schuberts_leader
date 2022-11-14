@@ -9,11 +9,6 @@ def create_linear_splines(X_vec, knot_points_list):
     return np.column_stack(splines_list)
 
 
-def mean_squared_error(y_true, y_pred):
-    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-    return np.sum((y_pred - y_true) ** 2)
-
-
 def estimate_OLS_linear_model_coefs(X_matrix, y_vec):
     """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
     xT_x = np.matmul(X_matrix.transpose(), X_matrix)
@@ -24,6 +19,11 @@ def estimate_OLS_linear_model_coefs(X_matrix, y_vec):
 def generate_linear_model_preds(X_matrix, beta_coefs_vec):
     """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
     return np.matmul(X_matrix, beta_coefs_vec)
+
+
+def mean_squared_error(y_true, y_pred):
+    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+    return np.sum((y_pred - y_true) ** 2)
 
 
 class leading_indicator_miner:
