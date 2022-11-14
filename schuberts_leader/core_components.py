@@ -29,12 +29,13 @@ def mean_squared_error(y_true, y_pred):
 def simulate_leading_indicator_data(
     n_samples,
     n_predictors,
-    n_leading_indicators,
-    noise_sd_min_max,
+    n_leading_indicator_effects,
+    lagged_effect_time_min_max,
     polynomial_coefs_min_max,
 ):
     """
-    this function simulates data containing (possibly) noisy leading indicators having a leading cubic polynomial relationship with the response variable (y)
+    this function simulates data containing leading indicators with a noisy time-lagged cubic polynomial effect on the response variable (y)
+    note that the same leading indicator can have multiple effects on the outcome variable Y (at different time lags)
 
     Parameters
     ----------
@@ -42,32 +43,57 @@ def simulate_leading_indicator_data(
         number of time points to simulate
     n_predictors : int
         number of predictor variables to simulate
-    n_leading_indicators : int
-        number of leading indicator variables to include. Must be smaller or equal to [n_predictors]
-    noise_sd_min_max : tuple containing 2 floats
-        e.g. noise_sd_min_max=(0.1, 5.0)
-        the smallest and largest standard deviation of random gaussian noise to be added to the leading indicators
-        (a random value is chosen from this range once for each leading indicator)
+    n_leading_indicator_effects : int
+        number of leading indicator effects to include
+    lagged_effect_time_min_max : tuple containing 2 integers
+        e.g. lagged_effect_time_min_max=(1,19)
+        the smallest and largest time between a leading indicator value and it's effect on the outcome
     polynomial_coefs_min_max : tuple containing 3 tuples containing 2 floats
-        e.g. polynomial_coefs_min_max=( (-10,10), (-1,1), (-0.1,0.1) )
-        the simulated leading effect between leading indicator X and (lagged) outcome Y is given by X += aY + bY^2 + cY^3
+        e.g. polynomial_coefs_min_max=( (-1,1), (-0.1,0.1), (-0.01,0.01) )
+        the simulated leading effect of leading indicator X on (lagged) outcome Y is given by Y += aX + bX^2 + cX^3
         the coefficients a, b and c are randomly drawn for each simulated leading indicator from the range defined by polynomial_coefs_min_max=( (MIN(a),MAX(a)), (MIN(b),MAX(b)), (MIN(c),MAX(c)) )
 
     Returns
     ----------
-    str, numpy.array(), numpy.array()
-        the first element is a string describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
+    dict, numpy.array(), numpy.array()
+        the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
         the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_samples,)
         the third element is a 2-D numpy array, of shape (n_samples, n_predictors)
     """
-    assert (
-        n_predictors >= n_leading_indicators
-    ), "number of leading indicators must be less than or equal to n_predictors"
     y_vec = np.random.uniform(low=-100, high=100, size=n_samples)
-    leading_indicator_idx = np.random.choice(
-        range(n_predictors), size=n_leading_indicators, replace=False
-    )
     X_matrix = np.random.uniform(low=-100, high=100, size=(n_samples, n_predictors))
+    simulated_effects_history_dict = {}
+    for i in range(n_leading_indicator_effects):
+        leading_indicator_idx = np.random.choice(range(n_predictors))
+        if leading_indicator_idx not in simulated_effects_history_dict:
+            simulated_effects_history_dict[leading_indicator_idx] = []
+        effect_lag = np.random.randint(
+            low=lagged_effect_time_min_max[0], high=lagged_effect_time_min_max[1]
+        )
+        a = np.random.uniform(
+            low=polynomial_coefs_min_max[0][0], high=polynomial_coefs_min_max[0][1]
+        )
+        b = np.random.uniform(
+            low=polynomial_coefs_min_max[1][0], high=polynomial_coefs_min_max[1][1]
+        )
+        c = np.random.uniform(
+            low=polynomial_coefs_min_max[2][0], high=polynomial_coefs_min_max[2][1]
+        )
+        relevant_x = X_matrix[: n_samples - effect_lag, leading_indicator_idx]
+        y_vec += np.concatenate(
+            [
+                np.zeros(effect_lag),
+                a * relevant_x + b * relevant_x**2 + c * relevant_x**3,
+            ]
+        )
+        simulated_effects_history_dict[leading_indicator_idx].append(
+            {
+                "lag": effect_lag,
+                "cubic_polynomial_coefs": [a, b, c],
+            }
+        )
+
+        return simulated_effects_history_dict, y_vec, X_matrix
 
 
 class leading_indicator_miner:
