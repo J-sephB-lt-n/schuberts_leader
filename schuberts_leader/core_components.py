@@ -118,8 +118,12 @@ class leading_indicator_miner:
 
     Methods
     -------
-    list
-        a list of strings representing the header columns
+    fit
+        TODO explanation here
+    explain_leading_indicator
+        TODO explanation here
+    predict
+        TODO explanation here
 
     Joe old Rubbish to clean up
     -------
@@ -127,12 +131,8 @@ class leading_indicator_miner:
         - currently only supports numeric indicator and numeric outcome variable
 
     goal of this model:
-        * identifies leading indicators (univariate), allowing non-linear relationship between the leading indicator (x) and the outcome (y)
-        * uses only numpy (no extra package dependencies)
-        * doesn't try to do too much - does 1 thing well
         * can be easily controlled in terms of calculation time
         * is very opinionated
-        * doesn't accept many different kinds of input (only numpy array). Only integer or float.
         * has a sklearn-like interface (e.g. .fit(), .predict() etc.)
         * proper class documentation (i.e. go fix this Joe)
     """
@@ -145,14 +145,14 @@ class leading_indicator_miner:
         Parameters
         ----------
         n_leading_indicators : int
-            the miner will maintain a set of the top [n_leading_indicators] found so far 
+            the miner will maintain a set of the top [n_leading_indicators] found so far
         """
         assert 1 == 1, "TODO: add an assertion here checking the input data types"
         self.n_leading_indicators = n_leading_indicators
         self.best_leading_indicators_vars_set = []
         self.total_iterations_counter = 0
         self.best_mse_seen_in_training = None
-        self.training_history = []  # (optionally) keeps
+        self.training_history = []
 
     def fit(
         self,
@@ -162,21 +162,43 @@ class leading_indicator_miner:
         y_varname,
         n_iterations,
         n_lags_to_consider,  # e.g. n_lags_to_consider={"min":5,"max":10}
-        n_knots={
+        n_knots_to_consider={
             # optional: number of knots to use in the continuous piecewise linear spline fit (default is linear regression without splines)
             "min": 0,
             "max": 0,
         },
         keep_training_history=False,
+        verbose=1,
     ):
         """
-        TODO: nice documentation here
-        (refer to https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)
+        Parameters
+        ----------
+        X : numpy array of shape (?,?) (float or int)
+            TODO explanation here
+        X_varnames : list of str
+            TODO explanation here
+        y : numpy array of shape (?,?) (float or int)
+            TODO explanation here
+        y_varname : str
+            TODO explanation here
+        n_iterations : int
+            TODO explanation here
+        n_lags_to_consider : dict
+            TODO explanation here
+        n_knots_to_consider : dict
+            TODO explanation here
+        keep_training_history : bool
+            TODO explanation here
+        verbose : int
+            TODO explanation here
+
+        Returns
+        ----------
+        None
+            .fit() updates attributes of the parent class (leading_indicator_miner) and (optionally) prints logging information while it runs, but does not explicitly return anything
         """
-        assert len(X[0]) == len(
-            X_varnames
-        ), "must have number of columns in X == len(X_varnames)"
-        assert len(X) == len(
+        assert X.shape[1] == len(X_varnames), "must have X.shape[1] == len(X_varnames)"
+        assert X.shape[0] == len(
             y
         ), "X must contain the same number of time steps as y (same number of rows)"
         for i in range(n_iterations):
@@ -192,16 +214,17 @@ class leading_indicator_miner:
                     low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
                 )
             if self.n_knots["min"] == self.n_knots["max"]:
-                n_knots_this_iter = self.n_knots["min"]
+                n_knots_this_iter = self.n_knots_to_consider["min"]
             else:
                 n_knots_this_iter = np.random.randint(
-                    low=self.n_knots["min"], high=self.n_knots["max"]
+                    low=self.n_knots_to_consider["min"],
+                    high=self.n_knots_to_consider["max"],
                 )
 
             # illustration of how features are lagged:
             """
             time:       0 1 2 3 4 5 6 7 8 9 10
-            lead size 3:
+            lag size 3:
                         X	y
                         0	3
                         1	4
@@ -212,46 +235,37 @@ class leading_indicator_miner:
             """
             # prepare X features for model:
             # (features are stored in a dictionary, with the variable name as key)
-            X_dict = {}
-            X_dict[predictor_varname_this_iter] = X[
-                : (len(X) - lag_this_iter), predictor_idx_this_iter
-            ]
-            X_dict["intercept"] = np.array(
-                [1] * len(X_dict[predictor_varname_this_iter])
-            )
+            x_vec_this_iter = X[: (len(X) - lag_this_iter), predictor_idx_this_iter]
+            y_vec_this_iter = y[lag_this_iter:]
+            intercept_var = np.ones(len(x_vec_this_iter))
             # create spline features (trendline change features):
             knot_locations_this_iter = np.unique(
                 # only unique quantiles are kept as knot locations
                 np.quantile(
-                    a=X_dict[predictor_varname_this_iter],
+                    a=x_vec_this_iter,
                     q=[
                         1.0 / (n_knots_this_iter + 1) * i
                         for i in range(1, n_knots_this_iter + 1)
                     ],
                 )
             )
-            quantile_counter = 0
-            for quantile in knot_locations_this_iter:
-                quantile_counter += 1
-                X_dict[
-                    f"{predictor_varname_this_iter}_slopechange_{quantile_counter}"
-                ] = (X_dict[predictor_varname_this_iter] > quantile) * (
-                    X_dict[predictor_varname_this_iter] - quantile
-                )
-
-            y_this_iter = y[lag_this_iter:]
-
-            # fit linear regression model:
-            X_mat = np.column_stack(list(X_dict.values()))
-            xT_x = np.matmul(X_mat.transpose(), X_mat)
-            xT_x_inv = np.linalg.inv(xT_x)
-            beta_estimates = np.matmul(
-                np.matmul(xT_x_inv, X_mat.transpose()), y_this_iter
+            spline_features_this_iter = create_linear_splines(
+                X_vec=x_vec_this_iter, knot_points_list=knot_locations_this_iter
             )
-            fit_y = np.matmul(X_mat, beta_estimates)
+            x_matrix_this_iter = np.column_stack(
+                [intercept_var, x_vec_this_iter, spline_features_this_iter]
+            )
+            beta_coef_this_iter = estimate_OLS_linear_model_coefs(
+                X_matrix=y_vec_this_iter,
+                y_vec=y_vec_this_iter,
+            )
+            fit_y = generate_linear_model_preds(
+                X_matrix=x_matrix_this_iter,
+                beta_coefs_vec=beta_coef_this_iter,
+            )
 
             # assess model fit to training data:
-            train_mse = self.mean_squared_error(y_true=y_this_iter, y_pred=fit_y)
+            train_mse = self.mean_squared_error(y_true=y_vec_this_iter, y_pred=fit_y)
 
             if keep_training_history:
                 self.training_history.append(
@@ -287,7 +301,7 @@ class leading_indicator_miner:
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
                         "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_estimates,
+                        "model_coefficients": beta_coef_this_iter,
                     }
                 )
             elif (
@@ -343,27 +357,9 @@ class leading_indicator_miner:
             )
 
     def predict(self, X, X_varnames):
-        print(X)
-        print(X_varnames)
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        pass
 
-
-if __name__ == "main":
-    ## EXAMPLE USAGE ##
-    help(leading_indicator_miner)
-    import numpy as np
-
-    raw_input_data = np.random.random((10_000, 50))
-
-    leading_indicator_miner_model = leading_indicator_miner(
-        n_knots={"min": 0, "max": 10},
-        n_leading_indicators=5,
-    )
-    leading_indicator_miner_model.fit(
-        X=raw_input_data[:, 0:49],
-        X_varnames=[f"x{i}" for i in range(1, 50)],
-        y=raw_input_data[:, 49],
-        y_varname="y",
-        n_lags_to_consider={"min": 5, "max": 10},
-        n_iterations=1_000,
-    )
-    leading_indicator_miner_model.best_leading_indicators_vars_set
+    def explain_leading_indicator(self, leading_indicator_varname):
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        pass
