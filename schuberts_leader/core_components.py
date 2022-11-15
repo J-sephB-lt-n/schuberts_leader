@@ -1,31 +1,6 @@
 import numpy as np
 
 
-def create_linear_splines(X_vec, knot_points_list):
-    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-    splines_list = []
-    for knot in knot_points_list:
-        splines_list.append((X_vec > knot) * (X_vec - knot))
-    return np.column_stack(splines_list)
-
-
-def estimate_OLS_linear_model_coefs(X_matrix, y_vec):
-    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-    xT_x = np.matmul(X_matrix.transpose(), X_matrix)
-    xT_x_inv = np.linalg.inv(xT_x)
-    return np.matmul(np.matmul(xT_x_inv, X_matrix.transpose()), y_vec)
-
-
-def generate_linear_model_preds(X_matrix, beta_coefs_vec):
-    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-    return np.matmul(X_matrix, beta_coefs_vec)
-
-
-def mean_squared_error(y_true, y_pred):
-    """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-    return np.sum((y_pred - y_true) ** 2)
-
-
 def simulate_leading_indicator_data(
     n_time_points,
     n_predictors,
@@ -115,9 +90,19 @@ class leading_indicator_miner:
         a record of the best Mean Squared Error on the training data seen on any iteration (over all training runs using the .fit() function)
     training_history : list
         a list (optional) containing full history of every leading indicator evaluated, and how it performed
+    mse_history : list
+        TODO explanation here
 
     Methods
     -------
+    create_linear_splines
+        TODO explanation here
+    estimate_OLS_linear_model_coefs
+        TODO explanation here
+    generate_linear_model_preds
+        TODO explanation here
+    mean_squared_error
+        TODO explanation here
     fit
         TODO explanation here
     explain_leading_indicator
@@ -153,6 +138,28 @@ class leading_indicator_miner:
         self.total_iterations_counter = 0
         self.best_mse_seen_in_training = None
         self.training_history = []
+        self.mse_history = []
+
+    def create_linear_splines(self, X_vec, knot_points_list):
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        splines_list = []
+        for knot in knot_points_list:
+            splines_list.append((X_vec > knot) * (X_vec - knot))
+        return np.column_stack(splines_list)
+
+    def estimate_OLS_linear_model_coefs(self, X_matrix, y_vec):
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        xT_x = np.matmul(X_matrix.transpose(), X_matrix)
+        xT_x_inv = np.linalg.inv(xT_x)
+        return np.matmul(np.matmul(xT_x_inv, X_matrix.transpose()), y_vec)
+
+    def generate_linear_model_preds(self, X_matrix, beta_coefs_vec):
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        return np.matmul(X_matrix, beta_coefs_vec)
+
+    def mean_squared_error(self, y_true, y_pred):
+        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        return np.mean((y_pred - y_true) ** 2)
 
     def fit(
         self,
@@ -213,12 +220,12 @@ class leading_indicator_miner:
                 lag_this_iter = np.random.randint(
                     low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
                 )
-            if self.n_knots["min"] == self.n_knots["max"]:
-                n_knots_this_iter = self.n_knots_to_consider["min"]
+            if n_knots_to_consider["min"] == n_knots_to_consider["max"]:
+                n_knots_this_iter = n_knots_to_consider["min"]
             else:
                 n_knots_this_iter = np.random.randint(
-                    low=self.n_knots_to_consider["min"],
-                    high=self.n_knots_to_consider["max"],
+                    low=n_knots_to_consider["min"],
+                    high=n_knots_to_consider["max"],
                 )
 
             # illustration of how features are lagged:
@@ -239,6 +246,7 @@ class leading_indicator_miner:
             y_vec_this_iter = y[lag_this_iter:]
             intercept_var = np.ones(len(x_vec_this_iter))
             # create spline features (trendline change features):
+
             knot_locations_this_iter = np.unique(
                 # only unique quantiles are kept as knot locations
                 np.quantile(
@@ -249,29 +257,35 @@ class leading_indicator_miner:
                     ],
                 )
             )
-            spline_features_this_iter = create_linear_splines(
-                X_vec=x_vec_this_iter, knot_points_list=knot_locations_this_iter
-            )
-            x_matrix_this_iter = np.column_stack(
-                [intercept_var, x_vec_this_iter, spline_features_this_iter]
-            )
-            beta_coef_this_iter = estimate_OLS_linear_model_coefs(
-                X_matrix=y_vec_this_iter,
+            if n_knots_this_iter > 0:
+                spline_features_this_iter = self.create_linear_splines(
+                    X_vec=x_vec_this_iter, knot_points_list=knot_locations_this_iter
+                )
+                x_matrix_this_iter = np.column_stack(
+                    [intercept_var, x_vec_this_iter, spline_features_this_iter]
+                )
+            else:
+                x_matrix_this_iter = np.column_stack([intercept_var, x_vec_this_iter])
+
+            beta_coef_this_iter = self.estimate_OLS_linear_model_coefs(
+                X_matrix=x_matrix_this_iter,
                 y_vec=y_vec_this_iter,
             )
-            fit_y = generate_linear_model_preds(
+            fit_y = self.generate_linear_model_preds(
                 X_matrix=x_matrix_this_iter,
                 beta_coefs_vec=beta_coef_this_iter,
             )
 
             # assess model fit to training data:
-            train_mse = self.mean_squared_error(y_true=y_vec_this_iter, y_pred=fit_y)
+            train_mse_this_iter = self.mean_squared_error(
+                y_true=y_vec_this_iter, y_pred=fit_y
+            )
 
             if keep_training_history:
                 self.training_history.append(
                     {
                         "leading_indicator_varname": predictor_varname_this_iter,
-                        "mean_squared_error": train_mse,
+                        "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
                     }
@@ -279,16 +293,21 @@ class leading_indicator_miner:
 
             if (
                 self.best_mse_seen_in_training is None
-                or self.best_mse_seen_in_training > train_mse
+                or self.best_mse_seen_in_training > train_mse_this_iter
             ):
-                self.best_mse_seen_in_training = train_mse
+                self.best_mse_seen_in_training = train_mse_this_iter
+                self.mse_history.append(
+                    (self.total_iterations_counter, self.best_mse_seen_in_training)
+                )
 
             leading_indicator_varnames_currently_in_best_set = [
                 x["leading_indicator_varname"]
                 for x in self.best_leading_indicators_vars_set
             ]
 
-            # if we haven't got [n_leading_indicators] yet, then just add this one in
+            # if we haven't got [n_leading_indicators] yet..
+            # ..and this variable is not already in [best_leading_indicators_vars_set]..
+            # ..then add this one in:
             if (
                 len(self.best_leading_indicators_vars_set) < self.n_leading_indicators
                 and predictor_varname_this_iter
@@ -297,7 +316,7 @@ class leading_indicator_miner:
                 self.best_leading_indicators_vars_set.append(
                     {
                         "leading_indicator_varname": predictor_varname_this_iter,
-                        "mean_squared_error": train_mse,
+                        "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
                         "knot_positions": knot_locations_this_iter,
@@ -305,9 +324,11 @@ class leading_indicator_miner:
                     }
                 )
             elif (
-                # if we already have [n_leading_indicators], and current leading indicator is better than the worst one in [best_leading_indicators_vars_set]
+                # if we already have [n_leading_indicators]..
+                # ..and the current leading indicator is better than the worst one in [best_leading_indicators_vars_set]..
+                # ..then replace the worst one in [best_leading_indicators_vars_set] with the current leading indicator:
                 len(self.best_leading_indicators_vars_set) == self.n_leading_indicators
-                and train_mse
+                and train_mse_this_iter
                 < self.best_leading_indicators_vars_set[0]["mean_squared_error"]
             ):
                 # if the current leading indicator is already in the [best_leading_indicators_vars_set]
@@ -326,22 +347,23 @@ class leading_indicator_miner:
                     # replace the existing current entry with the current (better) entry:
                     self.best_leading_indicators_vars_set[idx_in_best_set] = {
                         "leading_indicator_varname": predictor_varname_this_iter,
-                        "mean_squared_error": train_mse,
+                        "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
                         "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_estimates,
+                        "model_coefficients": beta_coef_this_iter,
                     }
 
                 else:
-                    # if the current leading indicator is not yet in the [best_leading_indicators_vars_set], then insert it (replacing the worst one already in the set)
+                    # if the current leading indicator is not yet in the [best_leading_indicators_vars_set]..
+                    # ..then insert it (replacing the worst one already in the set):
                     self.best_leading_indicators_vars_set[0] = {
                         "leading_indicator_varname": predictor_varname_this_iter,
-                        "mean_squared_error": train_mse,
+                        "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
                         "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_estimates,
+                        "model_coefficients": beta_coef_this_iter,
                     }
 
             # sort best leading indicator list by Mean Squared Error (worst to best):
@@ -350,11 +372,12 @@ class leading_indicator_miner:
                 key=lambda d: -d["mean_squared_error"],
             )
 
-            print(
-                f"\riteration {i+1} of {n_iterations}. best MSE: {self.best_mse_seen_in_training:.3f}",
-                end="",
-                flush=True,
-            )
+            if verbose > 0:
+                print(
+                    f"\riteration {(i+1):,} of {n_iterations:,}. best MSE: {self.best_mse_seen_in_training:,.3f}",
+                    end="",
+                    flush=True,
+                )
 
     def predict(self, X, X_varnames):
         """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
