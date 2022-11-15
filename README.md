@@ -14,6 +14,3 @@
 	o Is not flexible with regards to user input types (accepts data only as numpy arrays of integers or floats)
 	
 	o Does not make design decisions for the user (e.g. does not attempt to detect or avoid spurious correlations by removing trend and/or seasonality)
-
-	
-
