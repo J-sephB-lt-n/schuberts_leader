@@ -36,7 +36,8 @@ def simulate_leading_indicator_data(
     """
     this function simulates data containing leading indicators with a noisy time-lagged cubic polynomial effect on the response variable (y)
     note that the same leading indicator can have multiple effects on the outcome variable Y (at different time lags)
-    note that all X variables are populated randomly from a uniform distribution on [-100,100]
+    note that all X variables are populated with random independent draws from a uniform distribution on [-100,100]
+    y is initialized as random independent draws from a uniform distribution on [-10,10]
 
     Parameters
     ----------
@@ -61,7 +62,7 @@ def simulate_leading_indicator_data(
         the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
         the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
     """
-    y_vec = np.random.uniform(low=-100, high=100, size=n_time_points)
+    y_vec = np.random.uniform(low=-10, high=10, size=n_time_points)
     X_matrix = np.random.uniform(low=-100, high=100, size=(n_time_points, n_predictors))
     simulated_effects_history_dict = {}
     for i in range(n_leading_indicator_effects):
@@ -143,12 +144,8 @@ class leading_indicator_miner:
         """
         Parameters
         ----------
-        name : str
-            The name of the animal
-        sound : str
-            The sound the animal makes
-        num_legs : int, optional
-            The number of legs the animal (default is 4)
+        n_leading_indicators : int
+            the miner will maintain a set of the top [n_leading_indicators] found so far 
         """
         assert 1 == 1, "TODO: add an assertion here checking the input data types"
         self.n_leading_indicators = n_leading_indicators
