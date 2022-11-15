@@ -13,9 +13,4 @@
 
 	- Does not include optional extraneous features surrounding the core functionality
 	
-	- Is not flexible with regards to user input types (accepts data only as numpy arrays of integers or floats)
-	
-	- Does not make design decisions for the user (e.g. does not attempt to detect or avoid spurious correlations by removing trend and/or seasonality)
-
-	
-
+	o Does not make design decisions for the user (e.g. does not attempt to detect or avoid spurious correlations by removing trend and/or seasonality)
