@@ -27,7 +27,7 @@ def mean_squared_error(y_true, y_pred):
 
 
 def simulate_leading_indicator_data(
-    n_samples,
+    n_time_points,
     n_predictors,
     n_leading_indicator_effects,
     lagged_effect_time_min_max,
@@ -36,10 +36,11 @@ def simulate_leading_indicator_data(
     """
     this function simulates data containing leading indicators with a noisy time-lagged cubic polynomial effect on the response variable (y)
     note that the same leading indicator can have multiple effects on the outcome variable Y (at different time lags)
+    note that all X variables are populated randomly from a uniform distribution on [-100,100]
 
     Parameters
     ----------
-    n_samples : int
+    n_time_points : int
         number of time points to simulate
     n_predictors : int
         number of predictor variables to simulate
@@ -57,11 +58,11 @@ def simulate_leading_indicator_data(
     ----------
     dict, numpy.array(), numpy.array()
         the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
-        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_samples,)
-        the third element is a 2-D numpy array, of shape (n_samples, n_predictors)
+        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
+        the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
     """
-    y_vec = np.random.uniform(low=-100, high=100, size=n_samples)
-    X_matrix = np.random.uniform(low=-100, high=100, size=(n_samples, n_predictors))
+    y_vec = np.random.uniform(low=-100, high=100, size=n_time_points)
+    X_matrix = np.random.uniform(low=-100, high=100, size=(n_time_points, n_predictors))
     simulated_effects_history_dict = {}
     for i in range(n_leading_indicator_effects):
         leading_indicator_idx = np.random.choice(range(n_predictors))
@@ -79,7 +80,7 @@ def simulate_leading_indicator_data(
         c = np.random.uniform(
             low=polynomial_coefs_min_max[2][0], high=polynomial_coefs_min_max[2][1]
         )
-        relevant_x = X_matrix[: n_samples - effect_lag, leading_indicator_idx]
+        relevant_x = X_matrix[: n_time_points - effect_lag, leading_indicator_idx]
         y_vec += np.concatenate(
             [
                 np.zeros(effect_lag),
@@ -93,7 +94,7 @@ def simulate_leading_indicator_data(
             }
         )
 
-        return simulated_effects_history_dict, y_vec, X_matrix
+    return simulated_effects_history_dict, y_vec, X_matrix
 
 
 class leading_indicator_miner:
