@@ -11,8 +11,8 @@ def simulate_leading_indicator_data(
     """
     this function simulates data containing leading indicators with a noisy time-lagged cubic polynomial effect on the response variable (y)
     note that the same leading indicator can have multiple effects on the outcome variable Y (at different time lags)
-    note that all X variables are populated with random independent draws from a uniform distribution on [-100,100]
-    y is initialized as random independent draws from a uniform distribution on [-10,10]
+    note that all X variables are populated as a cumulative sum of random independent draws from a uniform distribution on [-100,100]
+    y is initialized as a cumulative sum of random independent draws from a uniform distribution on [-10,10]
 
     Parameters
     ----------
@@ -37,8 +37,10 @@ def simulate_leading_indicator_data(
         the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
         the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
     """
-    y_vec = np.random.uniform(low=-10, high=10, size=n_time_points)
-    X_matrix = np.random.uniform(low=-100, high=100, size=(n_time_points, n_predictors))
+    y_vec = np.random.uniform(low=-10, high=10, size=n_time_points).cumsum()
+    X_matrix = np.random.uniform(
+        low=-100, high=100, size=(n_time_points, n_predictors)
+    ).cumsum(axis=0)
     simulated_effects_history_dict = {}
     for i in range(n_leading_indicator_effects):
         leading_indicator_idx = np.random.choice(range(n_predictors))
@@ -109,17 +111,6 @@ class leading_indicator_miner:
         TODO explanation here
     predict
         TODO explanation here
-
-    Joe old Rubbish to clean up
-    -------
-    object for mining data in search of non-linear leading time series indicators (possibly multivariate)
-        - currently only supports numeric indicator and numeric outcome variable
-
-    goal of this model:
-        * can be easily controlled in terms of calculation time
-        * is very opinionated
-        * has a sklearn-like interface (e.g. .fit(), .predict() etc.)
-        * proper class documentation (i.e. go fix this Joe)
     """
 
     def __init__(
@@ -319,8 +310,8 @@ class leading_indicator_miner:
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
-                        "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_coef_this_iter,
+                        "knot_locations": knot_locations_this_iter,
+                        "beta_coefs": beta_coef_this_iter,
                     }
                 )
             elif (
@@ -350,8 +341,8 @@ class leading_indicator_miner:
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
-                        "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_coef_this_iter,
+                        "knot_locations": knot_locations_this_iter,
+                        "beta_coefs": beta_coef_this_iter,
                     }
 
                 else:
@@ -362,8 +353,8 @@ class leading_indicator_miner:
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
                         "n_knots": n_knots_this_iter,
-                        "knot_positions": knot_locations_this_iter,
-                        "model_coefficients": beta_coef_this_iter,
+                        "knot_locations": knot_locations_this_iter,
+                        "beta_coefs": beta_coef_this_iter,
                     }
 
             # sort best leading indicator list by Mean Squared Error (worst to best):
@@ -380,8 +371,74 @@ class leading_indicator_miner:
                 )
 
     def predict(self, X, X_varnames):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-        pass
+        """
+        returns future predictions using the best leading indicators set discovered during .fit()
+        a separate set of predictions is returned for each leading
+
+        Parameters
+        ----------
+        X : np.array(), float
+            Numpy array with each row a consecutive time point and each column a predictor
+        X_varnames : list, str
+            List (of strings) of length X.shape[1] containing the names of the columns (variables) in X
+
+        Returns
+        ----------
+        np.array(), float
+            returns a numpy array of predictions, where each column of the array is the series of predictions from on of the leading indicators
+            since the number of predictions differs per leading indicator (due to the length of the leading effect), the array has shape (largest_lead_effect_time_amongst_leading_indicators, n_leading_indicators)
+        """
+        max_lead_time = max(
+            [x["lag_n_time_periods"] for x in self.best_leading_indicators_vars_set]
+        )
+        assert (
+            len(X) >= max_lead_time
+        ), f"predictor matrix X must contain at least {max_lead_time} time points (the largest leading effect length in the set of best leading indicators) prior to the prediction period"
+
+        preds_list = []
+        for x in self.best_leading_indicators_vars_set:
+            x_varname = x["leading_indicator_varname"]
+            x_lead_time = x["lag_n_time_periods"]
+            x_idx = X_varnames.index(x_varname)
+            x_values = X[(len(X) - x_lead_time) :, x_idx]
+
+            # generate predictions #
+            intercept_var = np.ones(len(x_values))
+            # create spline features (trendline change features):
+            n_knots = x["n_knots"]
+            knot_locations = x["knot_locations"]
+            if n_knots > 0:
+                spline_features = self.create_linear_splines(
+                    X_vec=x_values, knot_points_list=knot_locations
+                )
+                x_matrix = np.column_stack([intercept_var, x_values, spline_features])
+            else:
+                x_matrix = np.column_stack([intercept_var, x_values])
+
+            pred_y = self.generate_linear_model_preds(
+                X_matrix=x_matrix,
+                beta_coefs_vec=x["beta_coefs"],
+            )
+            preds_list.append(pred_y)
+
+        # pad all of the prediction vectors to be the same length #
+        longest_preds_series_length = max([len(y) for y in preds_list])
+        for i in range(len(preds_list)):
+            this_preds_series_length = len(preds_list[i])
+            if this_preds_series_length < longest_preds_series_length:
+                preds_list[i] = np.concatenate(
+                    [
+                        preds_list[i],
+                        (
+                            np.empty(
+                                longest_preds_series_length - this_preds_series_length
+                            )
+                            * np.nan
+                        ),
+                    ]
+                )
+
+        return np.array(preds_list)
 
     def explain_leading_indicator(self, leading_indicator_varname):
         """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
