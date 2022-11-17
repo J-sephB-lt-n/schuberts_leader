@@ -438,7 +438,7 @@ class leading_indicator_miner:
                     ]
                 )
 
-        return np.array(preds_list)
+        return np.column_stack(preds_list)
 
     def explain_leading_indicator(self, leading_indicator_varname):
         """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
