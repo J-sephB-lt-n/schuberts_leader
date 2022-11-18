@@ -107,8 +107,6 @@ class leading_indicator_miner:
         TODO explanation here
     fit
         TODO explanation here
-    explain_leading_indicator
-        TODO explanation here
     predict
         TODO explanation here
     """
@@ -439,7 +437,3 @@ class leading_indicator_miner:
                 )
 
         return np.column_stack(preds_list)
-
-    def explain_leading_indicator(self, leading_indicator_varname):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-        pass
