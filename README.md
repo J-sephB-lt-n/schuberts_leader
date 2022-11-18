@@ -5,12 +5,12 @@
 
 * Depends on no other packages aside from [numpy](https://github.com/numpy/numpy)
 
-* Robustly performs a single task: detection of individual variables in tabular time-series data which have a leading non-linear correlation with a chosen univariate outcome variable
-
-* Does not try to do too much 
-
-	o Does not have include optional extraneous features surrounding the core functionality
+* Robustly performs a single task: 
 	
-	o Is not flexible with regards to user input types (accepts data only as numpy arrays of integers or floats)
+	- detection of individual variables in tabular time-series data which have a leading non-linear correlation with a chosen univariate time-series outcome variable
+
+* Does not try to do too much: 
+
+	- Does not include optional extraneous features surrounding the core functionality
 	
 	o Does not make design decisions for the user (e.g. does not attempt to detect or avoid spurious correlations by removing trend and/or seasonality)
