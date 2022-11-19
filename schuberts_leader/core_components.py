@@ -4,6 +4,78 @@ import numpy as np
 def simulate_leading_indicator_data(
     n_time_points,
     n_predictors,
+    n_leading_indicators,
+    lagged_effect_time_min_max,
+    n_y_breakpoints,
+):
+    """
+    this function simulates multivariate data containing leading indicators with a noisy time-lagged monotonic relationship with the response variable (y)
+    y is modelled as a random gaussian walk starting at y=0, with standard deviation 100
+    x variables are modelled directly from y if they are leading indicators, otherwise as random gaussian walks (the same as y)
+
+    Parameters
+    ----------
+    n_time_points : int
+        number of time points to simulate
+    n_predictors : int
+        number of predictor variables to simulate
+    n_leading_indicators : int
+        number of predictors which are leading indicators of the outcome y
+    lagged_effect_time_min_max : tuple containing 2 integers
+        e.g. lagged_effect_time_min_max=(1,19)
+        the smallest and largest time between a leading indicator (x) value and it's relationship with the outcome (y)
+    n_y_breakpoints : int
+        the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation
+        between randomly chosen monotone increasing (or decreasing) breakpoints
+        this parameter defines the number of breakpoints
+
+    Returns
+    ----------
+    dict, numpy.array(), numpy.array()
+        the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
+        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
+        the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
+    """
+    leading_effect_lags = np.random.choice(
+        range(lagged_effect_time_min_max[0], lagged_effect_time_min_max[1] + 1),
+        size=n_leading_indicators,
+        replace=True,
+    )
+    y_vec_extended = np.random.normal(
+        # y_vec is padded on the end (in order to be able to generate the leading x variables)
+        # these extra y values are removed before returning the y vector
+        loc=0,
+        scale=100,
+        size=n_time_points + leading_effect_lags.max(),
+    )
+    leading_indicator_ind = np.random.choice(
+        [0] * (n_predictors - n_leading_indicators) + [1] * n_leading_indicators,
+        size=n_predictors,
+        replace=False,
+    )
+    X_vectors_list = []
+    for i in range(n_predictors):
+        if leading_indicator_ind[i] == 0:
+            X_vectors_list.append(
+                np.random.normal(
+                    loc=0,
+                    scale=100,
+                    size=n_time_points,
+                )
+            )
+        else:
+            y_breakpoints = np.random.uniform(low=,high=,size=n_y_breakpoints)
+            relationship_asc_desc = np.random.choice(
+                ["asc", "desc"]
+            )  # decide whether monotonic relationship is ascending or descending
+            if relationship_asc_desc == "asc":
+                y_breakpoints.sort()
+            elif relationship_asc_desc=="desc":
+                pass
+
+def OLD_simulate_leading_indicator_data(
+    n_time_points,
+    n_predictors,
     n_leading_indicator_effects,
     lagged_effect_time_min_max,
     polynomial_coefs_min_max,
