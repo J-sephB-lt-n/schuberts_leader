@@ -14,6 +14,7 @@ def simulate_leading_indicator_data(
     n_leading_indicators,
     lagged_effect_time_min_max,
     n_y_breakpoints,
+    y_sim_method,
     noise_std_dev,
 ):
     """
@@ -36,6 +37,9 @@ def simulate_leading_indicator_data(
         the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation
         between randomly chosen monotone increasing (or decreasing) breakpoints
         this parameter defines the number of breakpoints
+    y_sim_method : str
+        one of {"independent_gaussian","gaussian_random_walk"}
+        TODO: explanation
     noise_std_dev : float
         TODO: explanation
 
@@ -60,13 +64,23 @@ def simulate_leading_indicator_data(
         )
         * leading_indicator_ind
     )
-    y_vec_extended = np.random.normal(
-        # y_vec is padded on the end (in order to be able to generate the leading x variables)
-        # these extra y values are removed before returning the y vector
-        loc=0,
-        scale=1,
-        size=n_time_points + leading_effect_lags.max(),
-    ).cumsum()
+    if y_sim_method == "independent_gaussian":
+        y_vec_extended = np.random.normal(
+            # y_vec is padded on the end (in order to be able to generate the leading x variables)
+            # these extra y values are removed before returning the y vector
+            loc=0,
+            scale=1,
+            size=n_time_points + leading_effect_lags.max(),
+        )
+    elif y_sim_method == "gaussian_random_walk":
+        y_vec_extended = np.random.normal(
+            # y_vec is padded on the end (in order to be able to generate the leading x variables)
+            # these extra y values are removed before returning the y vector
+            loc=0,
+            scale=1,
+            size=n_time_points + leading_effect_lags.max(),
+        ).cumsum()
+
     X_vectors_list = []
     for i in range(n_predictors):
         if leading_indicator_ind[i] == 0:  # variable has no leading relationship with y
