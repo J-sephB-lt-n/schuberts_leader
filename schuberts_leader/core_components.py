@@ -1,7 +1,167 @@
 import numpy as np
 
 
+n_time_points = 1_000
+n_predictors = 50
+n_leading_indicators = 5
+lagged_effect_time_min_max = (1, 10)
+n_y_breakpoints = 5
+
+
 def simulate_leading_indicator_data(
+    n_time_points,
+    n_predictors,
+    n_leading_indicators,
+    lagged_effect_time_min_max,
+    n_y_breakpoints,
+    noise_std_dev,
+):
+    """
+    this function simulates multivariate data containing leading indicators with a noisy time-lagged monotonic relationship with the response variable (y)
+    y is modelled as a random gaussian walk starting at y=0, with standard deviation 1
+    x variables are modelled directly from y if they are leading indicators, otherwise as random gaussian walks (the same as y)
+
+    Parameters
+    ----------
+    n_time_points : int
+        number of time points to simulate
+    n_predictors : int
+        number of predictor variables to simulate
+    n_leading_indicators : int
+        number of predictors which are leading indicators of the outcome y
+    lagged_effect_time_min_max : tuple containing 2 integers
+        e.g. lagged_effect_time_min_max=(1,19)
+        the smallest and largest time between a leading indicator (x) value and it's relationship with the outcome (y)
+    n_y_breakpoints : int
+        the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation
+        between randomly chosen monotone increasing (or decreasing) breakpoints
+        this parameter defines the number of breakpoints
+    noise_std_dev : float
+        TODO: explanation
+
+    Returns
+    ----------
+    dict, numpy.array(), numpy.array()
+        the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y). The key in the dict. is the index of the leading indicator in the matrix of predictors (X)
+        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
+        the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
+    """
+    leading_indicator_info_dict = {}
+    leading_indicator_ind = np.random.choice(
+        [0] * (n_predictors - n_leading_indicators) + [1] * n_leading_indicators,
+        size=n_predictors,
+        replace=False,
+    )
+    leading_effect_lags = (
+        np.random.choice(
+            range(lagged_effect_time_min_max[0], lagged_effect_time_min_max[1] + 1),
+            size=n_predictors,
+            replace=True,
+        )
+        * leading_indicator_ind
+    )
+    y_vec_extended = np.random.normal(
+        # y_vec is padded on the end (in order to be able to generate the leading x variables)
+        # these extra y values are removed before returning the y vector
+        loc=0,
+        scale=1,
+        size=n_time_points + leading_effect_lags.max(),
+    ).cumsum()
+    X_vectors_list = []
+    for i in range(n_predictors):
+        if leading_indicator_ind[i] == 0:  # variable has no leading relationship with y
+            X_vectors_list.append(
+                np.random.normal(
+                    loc=0,
+                    scale=1,
+                    size=n_time_points,
+                )
+            )
+        else:
+            lead_lag_i = leading_effect_lags[i]
+            y_lagged = y_vec_extended[lead_lag_i:]
+            y_breakpoints = np.concatenate(
+                [
+                    [y_vec_extended.min()],
+                    np.random.uniform(
+                        low=y_vec_extended.min(),
+                        high=y_vec_extended.max(),
+                        size=n_y_breakpoints,
+                    ),
+                    [y_vec_extended.max()],
+                ]
+            )
+            x_breakpoints = np.concatenate(
+                [[-20], np.random.uniform(low=-20, high=20, size=n_y_breakpoints), [20]]
+            )
+            relationship_asc_desc = np.random.choice(
+                ["asc", "desc"]
+            )  # decide whether monotonic relationship is ascending or descending
+            if relationship_asc_desc == "asc":
+                y_breakpoints.sort()
+                x_breakpoints.sort()
+                x_vec_val_list = []
+                for y in y_lagged:
+                    for j in range(len(y_breakpoints) - 1):
+                        if y >= y_breakpoints[j] and y <= y_breakpoints[j + 1]:
+                            pnt1_yx = (y_breakpoints[j], x_breakpoints[j])
+                            pnt2_yx = (y_breakpoints[j + 1], x_breakpoints[j + 1])
+                            x_vec_val_list.append(
+                                # linear interpolation between point 1 and point 2
+                                (
+                                    pnt1_yx[1] * (pnt2_yx[0] - y)
+                                    + pnt2_yx[1] * (y - pnt1_yx[0])
+                                )
+                                / (pnt2_yx[0] - pnt1_yx[0])
+                            )
+                X_vectors_list.append(
+                    np.array(x_vec_val_list)[:n_time_points]
+                    + np.random.normal(
+                        loc=0,
+                        scale=noise_std_dev,
+                        size=n_time_points,  # add random gaussian noise
+                    )
+                )
+                leading_indicator_info_dict[i] = {
+                    "relationship_lag": lead_lag_i,
+                }
+            elif relationship_asc_desc == "desc":
+                y_breakpoints.sort()
+                x_breakpoints[::-1].sort()  # sort descending
+                x_vec_val_list = []
+                for y in y_lagged:
+                    for j in range(len(y_breakpoints) - 1):
+                        if y >= y_breakpoints[j] and y <= y_breakpoints[j + 1]:
+                            pnt2_yx = (y_breakpoints[j], x_breakpoints[j])
+                            pnt1_yx = (y_breakpoints[j + 1], x_breakpoints[j + 1])
+                            x_vec_val_list.append(
+                                # linear interpolation between point 1 and point 2
+                                (
+                                    pnt1_yx[1] * (pnt2_yx[0] - y)
+                                    + pnt2_yx[1] * (y - pnt1_yx[0])
+                                )
+                                / (pnt2_yx[0] - pnt1_yx[0])
+                            )
+                X_vectors_list.append(
+                    np.array(x_vec_val_list)[:n_time_points]
+                    + np.random.normal(
+                        loc=0,
+                        scale=noise_std_dev,
+                        size=n_time_points,  # add random gaussian noise
+                    )
+                )
+                leading_indicator_info_dict[i] = {
+                    "relationship_lag": lead_lag_i,
+                }
+
+    return (
+        leading_indicator_info_dict,
+        y_vec_extended[:n_time_points],
+        np.column_stack(X_vectors_list),
+    )
+
+
+def OLD_simulate_leading_indicator_data(
     n_time_points,
     n_predictors,
     n_leading_indicator_effects,
