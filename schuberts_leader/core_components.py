@@ -1,13 +1,6 @@
 import numpy as np
 
 
-n_time_points = 1_000
-n_predictors = 50
-n_leading_indicators = 5
-lagged_effect_time_min_max = (1, 10)
-n_y_breakpoints = 5
-
-
 def simulate_leading_indicator_data(
     n_time_points,
     n_predictors,
@@ -332,11 +325,8 @@ class leading_indicator_miner:
         y_varname,
         n_iterations,
         n_lags_to_consider,  # e.g. n_lags_to_consider={"min":5,"max":10}
-        n_knots_to_consider={
-            # optional: number of knots to use in the continuous piecewise linear spline fit (default is linear regression without splines)
-            "min": 0,
-            "max": 0,
-        },
+        n_knots,
+        knot_strategy,
         keep_training_history=False,
         verbose=1,
     ):
@@ -355,8 +345,11 @@ class leading_indicator_miner:
             TODO explanation here
         n_lags_to_consider : dict
             TODO explanation here
-        n_knots_to_consider : dict
+        n_knots : int
             TODO explanation here
+        knot_strategy : str
+            controls how the knot positions are decided
+            one of {"quantiles","evenly_spaced"}
         keep_training_history : bool
             TODO explanation here
         verbose : int
@@ -383,13 +376,6 @@ class leading_indicator_miner:
                 lag_this_iter = np.random.randint(
                     low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
                 )
-            if n_knots_to_consider["min"] == n_knots_to_consider["max"]:
-                n_knots_this_iter = n_knots_to_consider["min"]
-            else:
-                n_knots_this_iter = np.random.randint(
-                    low=n_knots_to_consider["min"],
-                    high=n_knots_to_consider["max"],
-                )
 
             # illustration of how features are lagged:
             """
@@ -410,17 +396,22 @@ class leading_indicator_miner:
             intercept_var = np.ones(len(x_vec_this_iter))
             # create spline features (trendline change features):
 
-            knot_locations_this_iter = np.unique(
-                # only unique quantiles are kept as knot locations
-                np.quantile(
-                    a=x_vec_this_iter,
-                    q=[
-                        1.0 / (n_knots_this_iter + 1) * i
-                        for i in range(1, n_knots_this_iter + 1)
-                    ],
+            if knot_strategy == "quantiles":
+                knot_locations_this_iter = np.unique(
+                    # only unique quantiles are kept as knot locations
+                    np.quantile(
+                        a=x_vec_this_iter,
+                        q=[1.0 / (n_knots + 1) * i for i in range(1, n_knots + 1)],
+                    )
                 )
-            )
-            if n_knots_this_iter > 0:
+            elif knot_strategy == "evenly_spaced":
+                knot_locations_this_iter = np.linspace(
+                    start=x_vec_this_iter.min(),
+                    stop=x_vec_this_iter.max(),
+                    num=n_knots + 2,
+                )[1:-1]
+
+            if n_knots > 0:
                 spline_features_this_iter = self.create_linear_splines(
                     X_vec=x_vec_this_iter, knot_points_list=knot_locations_this_iter
                 )
@@ -450,7 +441,7 @@ class leading_indicator_miner:
                         "leading_indicator_varname": predictor_varname_this_iter,
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
-                        "n_knots": n_knots_this_iter,
+                        "n_knots": n_knots,
                     }
                 )
 
@@ -481,7 +472,7 @@ class leading_indicator_miner:
                         "leading_indicator_varname": predictor_varname_this_iter,
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
-                        "n_knots": n_knots_this_iter,
+                        "n_knots": n_knots,
                         "knot_locations": knot_locations_this_iter,
                         "beta_coefs": beta_coef_this_iter,
                     }
@@ -512,7 +503,7 @@ class leading_indicator_miner:
                         "leading_indicator_varname": predictor_varname_this_iter,
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
-                        "n_knots": n_knots_this_iter,
+                        "n_knots": n_knots,
                         "knot_locations": knot_locations_this_iter,
                         "beta_coefs": beta_coef_this_iter,
                     }
@@ -524,7 +515,7 @@ class leading_indicator_miner:
                         "leading_indicator_varname": predictor_varname_this_iter,
                         "mean_squared_error": train_mse_this_iter,
                         "lag_n_time_periods": lag_this_iter,
-                        "n_knots": n_knots_this_iter,
+                        "n_knots": n_knots,
                         "knot_locations": knot_locations_this_iter,
                         "beta_coefs": beta_coef_this_iter,
                     }
