@@ -421,6 +421,10 @@ class leading_indicator_miner:
             else:
                 x_matrix_this_iter = np.column_stack([intercept_var, x_vec_this_iter])
 
+            # assert np.linalg.det(
+            #    np.matmul(x_matrix_this_iter.transpose(), x_matrix_this_iter)
+            # ), "X matrix contains perfect multicollinearity (reduce number of knots)"
+
             beta_coef_this_iter = self.estimate_OLS_linear_model_coefs(
                 X_matrix=x_matrix_this_iter,
                 y_vec=y_vec_this_iter,
