@@ -18,7 +18,7 @@ class TestMeanSquaredErrorFunction(unittest.TestCase):
 
 class TestFullModelPipeline(unittest.TestCase):
     """
-    this test checks whether {schuberts leader} can (near) perfectly identify and model (i.e. predict using) deterministic leading indicator signals hidden within a simulated dataset
+    this test checks whether {schuberts leader} can (near) perfectly identify and model (i.e. predict using) deterministic leading indicator signals hidden within a simulated dataset (it must find all of them to pass the test)
     this implicitly tests the functionality of the following component functions:
         1. schuberts_leader.core_components.simulate_leading_indicator_data()
         2. schuberts_leader.core_components.leading_indicator_miner.fit()
@@ -36,11 +36,48 @@ class TestFullModelPipeline(unittest.TestCase):
             n_predictors=50,
             n_leading_indicators=5,
             lagged_effect_time_min_max=(7, 8),
-            n_y_breakpoints=8,
+            n_y_breakpoints=5,
             y_sim_method="independent_gaussian",
             noise_std_dev=0.0,
         )
         X_varnames = [f"X_{i}" for i in range(X_arr.shape[1])]
+        actual_leading_indicators_ref = set(
+            (X_varnames[i], sim_explain_dict[i]["relationship_lag"])
+            for i in sim_explain_dict.keys()
+        )
+        train_X_arr = X_arr[: len(X_arr) - 8, :]
+        train_y_arr = y_arr[: len(y_arr) - 8]
+        test_X_arr = X_arr[len(X_arr) - 8 :, :]
+        test_y_arr = y_arr[len(y_arr) - 8 :]
+        leading_indicator_miner_model = leading_indicator_miner(n_leading_indicators=5)
+        n_true_indicators_assessed = 0
+        while (
+            n_true_indicators_assessed < 5
+        ):  # keep looping until the model has seen every true leading indicator
+            leading_indicator_miner_model.fit(
+                X=train_X_arr,
+                X_varnames=X_varnames,
+                y=train_y_arr,
+                y_varname="y",
+                n_iterations=100,
+                lags_to_consider=[7, 8],
+                n_knots=20,
+                knot_strategy="quantiles",  # "evenly_spaced"
+                keep_training_history=True,
+            )
+            leading_indicators_assessed = set(
+                (x["leading_indicator_varname"], x["lag_n_time_periods"])
+                for x in leading_indicator_miner_model.training_history
+            )
+            n_true_indicators_assessed = len(
+                leading_indicators_assessed.intersection(actual_leading_indicators_ref)
+            )
+
+        best_leading_indicators_identified = {
+            (x["leading_indicator_varname"], x["lag_n_time_periods"])
+            for x in leading_indicator_miner_model.best_leading_indicators_vars_set
+        }
+        actual_leading_indicators_ref
 
         self.assertAlmostEqual(X_varnames, 0.0, places=10)
 

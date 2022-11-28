@@ -324,7 +324,7 @@ class leading_indicator_miner:
         y,
         y_varname,
         n_iterations,
-        n_lags_to_consider,  # e.g. n_lags_to_consider={"min":5,"max":10}
+        lags_to_consider,
         n_knots,
         knot_strategy,
         keep_training_history=False,
@@ -343,8 +343,9 @@ class leading_indicator_miner:
             TODO explanation here
         n_iterations : int
             TODO explanation here
-        n_lags_to_consider : dict
+        lags_to_consider : list
             TODO explanation here
+            e.g. lags_to_consider=[1,3,6,12]
         n_knots : int
             TODO explanation here
         knot_strategy : str
@@ -370,12 +371,7 @@ class leading_indicator_miner:
             # choose random model hyperparameters for this iteration #
             predictor_varname_this_iter = np.random.choice(X_varnames)
             predictor_idx_this_iter = X_varnames.index(predictor_varname_this_iter)
-            if n_lags_to_consider["min"] == n_lags_to_consider["max"]:
-                lag_this_iter = n_lags_to_consider["min"]
-            else:
-                lag_this_iter = np.random.randint(
-                    low=n_lags_to_consider["min"], high=n_lags_to_consider["max"]
-                )
+            lag_this_iter = np.random.choice(lags_to_consider)
 
             # illustration of how features are lagged:
             """
