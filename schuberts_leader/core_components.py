@@ -80,7 +80,7 @@ def simulate_leading_indicator_data(
             X_vectors_list.append(
                 np.random.normal(
                     loc=0,
-                    scale=1,
+                    scale=2,
                     size=n_time_points,
                 ).cumsum()
             )
