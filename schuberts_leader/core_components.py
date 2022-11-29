@@ -12,8 +12,8 @@ def simulate_leading_indicator_data(
 ):
     """
     this function simulates multivariate data containing leading indicators with a noisy time-lagged monotonic relationship with the response variable (y)
-    y is modelled as a random gaussian walk starting at y=0, with standard deviation 1
-    x variables are modelled directly from y if they are leading indicators, otherwise as random gaussian walks (the same as y)
+    y is modelled either as a random gaussian walk (starting at y=0 with standard deviation 1) or ...TODO
+    x variables are modelled directly from y if they are leading indicators, otherwise ...TODO
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def simulate_leading_indicator_data(
     if y_sim_method == "independent_gaussian":
         y_vec_extended = np.random.normal(
             # y_vec is padded on the end (in order to be able to generate the leading x variables)
-            # these extra y values are removed before returning the y vector
+            # these extra y values are discarded when returning the y vector
             loc=0,
             scale=1,
             size=n_time_points + leading_effect_lags.max(),
@@ -68,7 +68,7 @@ def simulate_leading_indicator_data(
     elif y_sim_method == "gaussian_random_walk":
         y_vec_extended = np.random.normal(
             # y_vec is padded on the end (in order to be able to generate the leading x variables)
-            # these extra y values are removed before returning the y vector
+            # these extra y values are discarded when returning the y vector
             loc=0,
             scale=1,
             size=n_time_points + leading_effect_lags.max(),
@@ -82,22 +82,27 @@ def simulate_leading_indicator_data(
                     loc=0,
                     scale=1,
                     size=n_time_points,
-                )
+                ).cumsum()
             )
         else:
             lead_lag_i = leading_effect_lags[i]
             y_lagged = y_vec_extended[lead_lag_i:]
-            y_breakpoints = np.concatenate(
-                [
-                    [y_vec_extended.min()],
-                    np.random.uniform(
-                        low=y_vec_extended.min(),
-                        high=y_vec_extended.max(),
-                        size=n_y_breakpoints,
-                    ),
-                    [y_vec_extended.max()],
-                ]
+            y_breakpoints = np.linspace(
+                start=y_vec_extended.min(),
+                stop=y_vec_extended.max(),
+                num=n_y_breakpoints,
             )
+            # np.concatenate(
+            #    [
+            #        [y_vec_extended.min()],
+            #        np.random.uniform(
+            #            low=y_vec_extended.min(),
+            #            high=y_vec_extended.max(),
+            #            size=n_y_breakpoints,
+            #        ),
+            #        [y_vec_extended.max()],
+            #    ]
+            # )
             x_breakpoints = np.concatenate(
                 [[-20], np.random.uniform(low=-20, high=20, size=n_y_breakpoints), [20]]
             )
@@ -313,9 +318,12 @@ class leading_indicator_miner:
         """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
         return np.matmul(X_matrix, beta_coefs_vec)
 
-    def mean_squared_error(self, y_true, y_pred):
+    def mean_squared_error(self, y_true, y_pred, ignore_nan=False):
         """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
-        return np.mean((y_pred - y_true) ** 2)
+        if ignore_nan:
+            return np.nanmean((y_pred - y_true) ** 2)
+        else:
+            return np.mean((y_pred - y_true) ** 2)
 
     def fit(
         self,
@@ -461,7 +469,7 @@ class leading_indicator_miner:
 
             # if we haven't got [n_leading_indicators] yet..
             # ..and this variable is not already in [best_leading_indicators_vars_set]..
-            # ..then add this one in:
+            # ..then add it to [best_leading_indicators_vars_set]:
             if (
                 len(self.best_leading_indicators_vars_set) < self.n_leading_indicators
                 and predictor_varname_this_iter
@@ -536,14 +544,17 @@ class leading_indicator_miner:
     def predict(self, X, X_varnames):
         """
         returns future predictions using the best leading indicators set discovered during .fit()
-        a separate set of predictions is returned for each leading
+        a separate set of predictions is returned for each leading indicator in the best leading indicators set (self.best_leading_indicators_vars_set)
+        note:
+            * input [X] only needs to contain enough time points (rows) prior to the forecast period in order to generate a prediction (doesn't need to contain the whole training data)
+            * input [X] only needs to contain the variables in the best leading indicators set (self.best_leading_indicators_vars_set)
 
         Parameters
         ----------
         X : np.array(), float
             Numpy array with each row a consecutive time point and each column a predictor
         X_varnames : list, str
-            List (of strings) of length X.shape[1] containing the names of the columns (variables) in X
+            List (of strings) of length X.shape[1] containing the names of the columns (variables) in input [X] - these are used
 
         Returns
         ----------

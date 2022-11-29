@@ -24,15 +24,16 @@ class TestFullModelPipeline(unittest.TestCase):
         2. schuberts_leader.core_components.leading_indicator_miner.fit()
         3. schuberts_leader.core_components.leading_indicator_miner.create_linear_splines()
         4. schuberts_leader.core_components.leading_indicator_miner.estimate_OLS_linear_model_coefs()
-        5. schuberts_leader.core_components.predict()
-        6. schuberts_leader.core_components.leading_indicator_miner.generate_linear_model_preds()
+        5. schuberts_leader.core_components.leading_indicator_miner.mean_squared_error()
+        6. schuberts_leader.core_components.predict()
+        7. schuberts_leader.core_components.leading_indicator_miner.generate_linear_model_preds()
     """
 
     def test_full_model_pipeline(self):
 
         # simulate data with deterministic leading effect relationships #
         sim_explain_dict, y_arr, X_arr = simulate_leading_indicator_data(
-            n_time_points=100,
+            n_time_points=1_000,
             n_predictors=50,
             n_leading_indicators=5,
             lagged_effect_time_min_max=(7, 8),
@@ -61,7 +62,7 @@ class TestFullModelPipeline(unittest.TestCase):
                 y_varname="y",
                 n_iterations=100,
                 lags_to_consider=[7, 8],
-                n_knots=20,
+                n_knots=100,
                 knot_strategy="quantiles",  # "evenly_spaced"
                 keep_training_history=True,
             )
@@ -77,9 +78,26 @@ class TestFullModelPipeline(unittest.TestCase):
             (x["leading_indicator_varname"], x["lag_n_time_periods"])
             for x in leading_indicator_miner_model.best_leading_indicators_vars_set
         }
-        actual_leading_indicators_ref
-
-        self.assertAlmostEqual(X_varnames, 0.0, places=10)
+        self.assertEqual(
+            best_leading_indicators_identified, actual_leading_indicators_ref
+        )
+        best_leading_indicators_idx = [
+            X_varnames.index(x[0]) for x in best_leading_indicators_identified
+        ]
+        test_data_preds = leading_indicator_miner_model.predict(
+            X=train_X_arr[:, best_leading_indicators_idx],
+            X_varnames=[X_varnames[i] for i in best_leading_indicators_idx],
+        )
+        test_data_mse_per_leading_indicator_list = []
+        for i in range(test_data_preds.shape[1]):
+            test_data_mse_per_leading_indicator_list.append(
+                leading_indicator_miner_model.mean_squared_error(
+                    y_true=test_y_arr, y_pred=test_data_preds[:, i], ignore_nan=True
+                )
+            )
+        self.assertAlmostEqual(
+            max(test_data_mse_per_leading_indicator_list), 0.0, places=5
+        )
 
 
 # class TestLinearSplinesModel(unittest.TestCase):
