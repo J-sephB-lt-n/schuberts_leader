@@ -10,10 +10,31 @@ from schuberts_leader.core_components import (
 
 
 class TestMeanSquaredErrorFunction(unittest.TestCase):
-    """TODO: documentation here"""
+    """
+    this test checks whether the .mean_squared_error() function in the leading_indicator_miner class works correctly for a simple example
+    the "ignore_nan" functionality is tested in a separate test
+    """
 
     def test_meanSquaredErrorFunction(self):
-        self.assertAlmostEqual(0.0, 0.0, places=10)
+        obs_y = np.array([6, -9, 4, -20, 999])
+        model_y = np.array([-1, 2, -3, 4, np.nan])
+        leading_indicator_miner_model = leading_indicator_miner(
+            n_leading_indicators=1
+        )  # we instantiate a model object because the MeanSquaredError function lives within the model class
+        self.assertAlmostEqual(
+            198.75,
+            leading_indicator_miner_model.mean_squared_error(
+                y_true=model_y[:4], y_pred=obs_y[:4]
+            ),
+            places=10,
+        )
+        self.assertAlmostEqual(
+            198.75,
+            leading_indicator_miner_model.mean_squared_error(
+                y_true=model_y, y_pred=obs_y, ignore_nan=True
+            ),
+            places=10,
+        )
 
 
 class TestFullModelPipeline(unittest.TestCase):
@@ -51,7 +72,9 @@ class TestFullModelPipeline(unittest.TestCase):
         train_y_arr = y_arr[: len(y_arr) - 8]
         test_X_arr = X_arr[len(X_arr) - 8 :, :]
         test_y_arr = y_arr[len(y_arr) - 8 :]
-        leading_indicator_miner_model = leading_indicator_miner(n_leading_indicators=n_true_leading_indicators)
+        leading_indicator_miner_model = leading_indicator_miner(
+            n_leading_indicators=n_true_leading_indicators
+        )
         n_true_indicators_assessed = 0
         while (
             n_true_indicators_assessed < n_true_leading_indicators
@@ -94,7 +117,9 @@ class TestFullModelPipeline(unittest.TestCase):
         for i in range(test_data_preds.shape[1]):
             test_data_mse_per_leading_indicator_list.append(
                 leading_indicator_miner_model.mean_squared_error(
-                    y_true=test_y_arr[:max_forecast_horizon], y_pred=test_data_preds[:max_forecast_horizon, i], ignore_nan=True
+                    y_true=test_y_arr[:max_forecast_horizon],
+                    y_pred=test_data_preds[:max_forecast_horizon, i],
+                    ignore_nan=True,
                 )
             )
         self.assertAlmostEqual(
