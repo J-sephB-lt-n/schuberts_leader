@@ -32,12 +32,13 @@ class TestFullModelPipeline(unittest.TestCase):
     def test_full_model_pipeline(self):
 
         # simulate data with deterministic leading effect relationships #
+        n_true_leading_indicators = 3
         sim_explain_dict, y_arr, X_arr = simulate_leading_indicator_data(
             n_time_points=1_000,
-            n_predictors=50,
-            n_leading_indicators=5,
+            n_predictors=10,
+            n_leading_indicators=n_true_leading_indicators,
             lagged_effect_time_min_max=(7, 8),
-            n_y_breakpoints=5,
+            n_y_breakpoints=8,
             y_sim_method="independent_gaussian",
             noise_std_dev=0.0,
         )
@@ -50,10 +51,10 @@ class TestFullModelPipeline(unittest.TestCase):
         train_y_arr = y_arr[: len(y_arr) - 8]
         test_X_arr = X_arr[len(X_arr) - 8 :, :]
         test_y_arr = y_arr[len(y_arr) - 8 :]
-        leading_indicator_miner_model = leading_indicator_miner(n_leading_indicators=5)
+        leading_indicator_miner_model = leading_indicator_miner(n_leading_indicators=n_true_leading_indicators)
         n_true_indicators_assessed = 0
         while (
-            n_true_indicators_assessed < 5
+            n_true_indicators_assessed < n_true_leading_indicators
         ):  # keep looping until the model has seen every true leading indicator
             leading_indicator_miner_model.fit(
                 X=train_X_arr,
@@ -89,14 +90,15 @@ class TestFullModelPipeline(unittest.TestCase):
             X_varnames=[X_varnames[i] for i in best_leading_indicators_idx],
         )
         test_data_mse_per_leading_indicator_list = []
+        max_forecast_horizon = test_data_preds.shape[1]
         for i in range(test_data_preds.shape[1]):
             test_data_mse_per_leading_indicator_list.append(
                 leading_indicator_miner_model.mean_squared_error(
-                    y_true=test_y_arr, y_pred=test_data_preds[:, i], ignore_nan=True
+                    y_true=test_y_arr[:max_forecast_horizon], y_pred=test_data_preds[:max_forecast_horizon, i], ignore_nan=True
                 )
             )
         self.assertAlmostEqual(
-            max(test_data_mse_per_leading_indicator_list), 0.0, places=5
+            max(test_data_mse_per_leading_indicator_list), 0.0, places=3
         )
 
 

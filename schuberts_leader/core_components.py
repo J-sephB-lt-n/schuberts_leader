@@ -87,11 +87,15 @@ def simulate_leading_indicator_data(
         else:
             lead_lag_i = leading_effect_lags[i]
             y_lagged = y_vec_extended[lead_lag_i:]
-            y_breakpoints = np.linspace(
-                start=y_vec_extended.min(),
-                stop=y_vec_extended.max(),
-                num=n_y_breakpoints,
+            y_breakpoints = np.quantile(
+                a = y_vec_extended,
+                q = np.linspace(start=0,stop=1,num=n_y_breakpoints+2)
             )
+            #y_breakpoints = np.linspace(
+            #    start=y_vec_extended.min(),
+            #    stop=y_vec_extended.max(),
+            #    num=n_y_breakpoints,
+            #)
             # np.concatenate(
             #    [
             #        [y_vec_extended.min()],
