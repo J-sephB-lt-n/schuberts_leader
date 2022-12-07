@@ -8,12 +8,14 @@ def simulate_leading_indicator_data(
     lagged_effect_time_min_max,
     n_y_breakpoints,
     y_sim_method,
+    x_sim_method,
     noise_std_dev,
 ):
     """
-    this function simulates multivariate data containing leading indicators with a noisy time-lagged monotonic relationship with the response variable (y)
-    y is modelled either as a random gaussian walk (starting at y=0 with standard deviation 1) or ...TODO
-    x variables are modelled directly from y if they are leading indicators, otherwise ...TODO
+    this function simulates multivariate feature data (X), in which some of the variables have a with a noisy time-lagged monotonic relationship with a simulated response/outcome variable (y)
+    y is modelled either as a random gaussian walk starting at y=0 with each step Normal(0,1) or as independent draws from Normal(0,1)
+    x variables are modelled directly from y if they are leading indicators, otherwise either as a random gaussian walk starting at x=0 with each step Normal(0,1) or as independent draws from Normal(0,1)
+    random gaussian noise - randomly drawn from a Normal(0,noise_std_dev) distribution - is added to the
 
     Parameters
     ----------
@@ -22,27 +24,42 @@ def simulate_leading_indicator_data(
     n_predictors : int
         number of predictor variables to simulate
     n_leading_indicators : int
-        number of predictors which are leading indicators of the outcome y
+        number of predictors which are leading indicators of (i.e. predictive of) the response/outcome variable y
     lagged_effect_time_min_max : tuple containing 2 integers
-        e.g. lagged_effect_time_min_max=(1,19)
-        the smallest and largest time between a leading indicator (x) value and it's relationship with the outcome (y)
+        the shortest and longest allowable length of (simulated) lagged relationship between a leading indicator (x) and the outcome (y)
+        example: lagged_effect_time_min_max=(1,19)
     n_y_breakpoints : int
         the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation
         between randomly chosen monotone increasing (or decreasing) breakpoints
         this parameter defines the number of breakpoints
     y_sim_method : str
         one of {"independent_gaussian","gaussian_random_walk"}
-        TODO: explanation
+        method used to simulate the response/outcome variable (y)
+        one of      1. random gaussian walk starting at y=0 with each step a random draw from Normal(0,1)
+                    2. each value an independent random draw from Normal(0,1)
+    x_sim_method : str
+        one of {"independent_gaussian","gaussian_random_walk"}
+        method used to simulate each feature (independent) variables (X)
+        one of      1. random gaussian walk starting at x=0 with each step a random draw from Normal(0,1)
+                    2. each value an independent random draw from Normal(0,1)
     noise_std_dev : float
-        TODO: explanation
+        the standard deviation of the random gaussian noise added to
 
     Returns
     ----------
     dict, numpy.array(), numpy.array()
-        the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y). The key in the dict. is the index of the leading indicator in the matrix of predictors (X)
-        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
-        the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
+        the first returned element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y). The key in the dict. is the index of the leading indicator in the matrix of predictors (X)
+        the second returned element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
+        the third returned element is a 2-D numpy array of shape (n_time_points, n_predictors)
     """
+
+    assert y_sim_method in (
+        ["independent_gaussian", "gaussian_random_walk"]
+    ), "y_sim_method must be one of {'independent_gaussian','gaussian_random_walk'}"
+    assert x_sim_method in (
+        ["independent_gaussian", "gaussian_random_walk"]
+    ), "x_sim_method must be one of {'independent_gaussian','gaussian_random_walk'}"
+
     leading_indicator_info_dict = {}
     leading_indicator_ind = np.random.choice(
         [0] * (n_predictors - n_leading_indicators) + [1] * n_leading_indicators,
@@ -57,56 +74,35 @@ def simulate_leading_indicator_data(
         )
         * leading_indicator_ind
     )
-    if y_sim_method == "independent_gaussian":
-        y_vec_extended = np.random.normal(
-            # y_vec is padded on the end (in order to be able to generate the leading x variables)
-            # these extra y values are discarded when returning the y vector
-            loc=0,
-            scale=1,
-            size=n_time_points + leading_effect_lags.max(),
-        )
-    elif y_sim_method == "gaussian_random_walk":
-        y_vec_extended = np.random.normal(
-            # y_vec is padded on the end (in order to be able to generate the leading x variables)
-            # these extra y values are discarded when returning the y vector
-            loc=0,
-            scale=1,
-            size=n_time_points + leading_effect_lags.max(),
-        ).cumsum()
+    y_vec_extended = np.random.normal(
+        # y_vec is padded on the end (in order to be able to generate the leading x variables)
+        # these extra y values are discarded when returning the y vector
+        loc=0,
+        scale=1,
+        size=n_time_points + leading_effect_lags.max(),
+    )
+    if y_sim_method == "gaussian_random_walk":
+        y_vec_extended = y_vec_extended.cumsum()
 
     X_vectors_list = []
     for i in range(n_predictors):
         if leading_indicator_ind[i] == 0:  # variable has no leading relationship with y
-            X_vectors_list.append(
-                np.random.normal(
-                    loc=0,
-                    scale=2,
-                    size=n_time_points,
-                ).cumsum()
+            x = np.random.normal(
+                loc=0,
+                scale=2,
+                size=n_time_points,
             )
+            if x_sim_method == "gaussian_random_walk":
+                x = x.cumsum()
+            X_vectors_list.append(x)
+            del x
         else:
             lead_lag_i = leading_effect_lags[i]
             y_lagged = y_vec_extended[lead_lag_i:]
             y_breakpoints = np.quantile(
-                a = y_vec_extended,
-                q = np.linspace(start=0,stop=1,num=n_y_breakpoints+2)
+                a=y_vec_extended,
+                q=np.linspace(start=0, stop=1, num=n_y_breakpoints + 2),
             )
-            #y_breakpoints = np.linspace(
-            #    start=y_vec_extended.min(),
-            #    stop=y_vec_extended.max(),
-            #    num=n_y_breakpoints,
-            #)
-            # np.concatenate(
-            #    [
-            #        [y_vec_extended.min()],
-            #        np.random.uniform(
-            #            low=y_vec_extended.min(),
-            #            high=y_vec_extended.max(),
-            #            size=n_y_breakpoints,
-            #        ),
-            #        [y_vec_extended.max()],
-            #    ]
-            # )
             x_breakpoints = np.concatenate(
                 [[-20], np.random.uniform(low=-20, high=20, size=n_y_breakpoints), [20]]
             )
@@ -177,84 +173,9 @@ def simulate_leading_indicator_data(
     )
 
 
-def OLD_simulate_leading_indicator_data(
-    n_time_points,
-    n_predictors,
-    n_leading_indicator_effects,
-    lagged_effect_time_min_max,
-    polynomial_coefs_min_max,
-):
-    """
-    this function simulates data containing leading indicators with a noisy time-lagged cubic polynomial effect on the response variable (y)
-    note that the same leading indicator can have multiple effects on the outcome variable Y (at different time lags)
-    note that all X variables are populated as a cumulative sum of random independent draws from a uniform distribution on [-100,100]
-    y is initialized as a cumulative sum of random independent draws from a uniform distribution on [-10,10]
-
-    Parameters
-    ----------
-    n_time_points : int
-        number of time points to simulate
-    n_predictors : int
-        number of predictor variables to simulate
-    n_leading_indicator_effects : int
-        number of leading indicator effects to include
-    lagged_effect_time_min_max : tuple containing 2 integers
-        e.g. lagged_effect_time_min_max=(1,19)
-        the smallest and largest time between a leading indicator value and it's effect on the outcome
-    polynomial_coefs_min_max : tuple containing 3 tuples containing 2 floats
-        e.g. polynomial_coefs_min_max=( (-1,1), (-0.1,0.1), (-0.01,0.01) )
-        the simulated leading effect of leading indicator X on (lagged) outcome Y is given by Y += aX + bX^2 + cX^3
-        the coefficients a, b and c are randomly drawn for each simulated leading indicator from the range defined by polynomial_coefs_min_max=( (MIN(a),MAX(a)), (MIN(b),MAX(b)), (MIN(c),MAX(c)) )
-
-    Returns
-    ----------
-    dict, numpy.array(), numpy.array()
-        the first element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y)
-        the second element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
-        the third element is a 2-D numpy array, of shape (n_time_points, n_predictors)
-    """
-    y_vec = np.random.uniform(low=-10, high=10, size=n_time_points).cumsum()
-    X_matrix = np.random.uniform(
-        low=-100, high=100, size=(n_time_points, n_predictors)
-    ).cumsum(axis=0)
-    simulated_effects_history_dict = {}
-    for i in range(n_leading_indicator_effects):
-        leading_indicator_idx = np.random.choice(range(n_predictors))
-        if leading_indicator_idx not in simulated_effects_history_dict:
-            simulated_effects_history_dict[leading_indicator_idx] = []
-        effect_lag = np.random.randint(
-            low=lagged_effect_time_min_max[0], high=lagged_effect_time_min_max[1]
-        )
-        a = np.random.uniform(
-            low=polynomial_coefs_min_max[0][0], high=polynomial_coefs_min_max[0][1]
-        )
-        b = np.random.uniform(
-            low=polynomial_coefs_min_max[1][0], high=polynomial_coefs_min_max[1][1]
-        )
-        c = np.random.uniform(
-            low=polynomial_coefs_min_max[2][0], high=polynomial_coefs_min_max[2][1]
-        )
-        relevant_x = X_matrix[: n_time_points - effect_lag, leading_indicator_idx]
-        y_vec += np.concatenate(
-            [
-                np.zeros(effect_lag),
-                a * relevant_x + b * relevant_x**2 + c * relevant_x**3,
-            ]
-        )
-        simulated_effects_history_dict[leading_indicator_idx].append(
-            {
-                "lag": effect_lag,
-                "cubic_polynomial_coefs": [a, b, c],
-            }
-        )
-
-    return simulated_effects_history_dict, y_vec, X_matrix
-
-
 class leading_indicator_miner:
     """
-    A class containing a model which searches data for leading indicator variables
-    ...
+    leading_indicator_miner is a model which searches data for leading indicators (variables with a leading correlation with outcome variable y)
 
     Attributes
     ----------
@@ -274,11 +195,12 @@ class leading_indicator_miner:
     Methods
     -------
     create_linear_splines
-        TODO explanation here
+        creates truncated power basis splines for a given single predictor variable (using user-provided knot points)
+        these splines facilitate a piecewise continuous linear spline fit (i.e. degree=1 splines)
     estimate_OLS_linear_model_coefs
-        TODO explanation here
+        calculates the Ordinary Least Squares (OLS) linear model coefficients for a given set of predictors (X) and response variable (y)
     generate_linear_model_preds
-        TODO explanation here
+        calculates predictions using a trained OLS linear model, requiring only the trained model coefficients and the matrix of predictors
     mean_squared_error
         TODO explanation here
     fit
@@ -306,24 +228,86 @@ class leading_indicator_miner:
         self.mse_history = []
 
     def create_linear_splines(self, X_vec, knot_points_list):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        """
+        this method creates truncated power basis splines for a given single predictor variable (using user-provided knot points)
+        these splines facilitate a piecewise continuous linear spline fit (i.e. degree=1 splines)
+
+        Parameters
+        ----------
+        X_vec : np.array() (int or float)
+            a 1-dimensional input variable numpy array (i.e. shape (n,) for some value n)
+        knot_points_list : list (same dtype as X_vec)
+            a list of knot points (slope change points) for the spline fit
+
+        Returns
+        ----------
+        np.array()
+            returns a numpy array containing the truncated power basis variables
+            the shape of the returned array is (len(X_vec), len(knot_points_list))
+        """
+        assert (
+            len(X_vec.shape) == 1
+        ), "input [X_vec] must have shape (n,) i.e. is 1-dimensional"
         splines_list = []
         for knot in knot_points_list:
             splines_list.append((X_vec > knot) * (X_vec - knot))
         return np.column_stack(splines_list)
 
     def estimate_OLS_linear_model_coefs(self, X_matrix, y_vec):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        """
+        this method calculates the Ordinary Least Squares (OLS) linear model coefficients for a given set of predictors (X) and response variable (y)
+        note that perfect multicollinearity in the input [X_matrix] will lead to a singular matrix error
+
+        Parameters
+        ----------
+        X_matrix : np.array() (int or float)
+            numpy array of shape (n_samples, n_predictors)
+        y_vec : np.array() (int or float)
+            numpy array of shape (n_samples,)
+
+        Returns
+        ----------
+        np.array()
+            numpy array of shape (n_predictors,) containing the Ordinary Least Squares (OLS) linear model coefficients
+        """
         xT_x = np.matmul(X_matrix.transpose(), X_matrix)
         xT_x_inv = np.linalg.inv(xT_x)
         return np.matmul(np.matmul(xT_x_inv, X_matrix.transpose()), y_vec)
 
     def generate_linear_model_preds(self, X_matrix, beta_coefs_vec):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        """
+        this method calculates predictions using a trained OLS linear model, requiring only the trained model coefficients and the matrix of predictors
+
+        Parameters
+        ----------
+        X_matrix : np.array() (int or float)
+            matrix of predictors, of shape (n_prediction_samples, n_predictors)
+        beta_coefs_vec : np.array() (int)
+            numpy array of trained linear model coefficients, of shape (n_predictors)
+
+        Returns
+        ----------
+        np.array() (float)
+            returns numpy array of model predictions, of shape (n_prediction_samples,)
+        """
         return np.matmul(X_matrix, beta_coefs_vec)
 
     def mean_squared_error(self, y_true, y_pred, ignore_nan=False):
-        """TODO: needs some documentation (see https://realpython.com/documenting-python-code/#documenting-your-python-code-base-using-docstrings)"""
+        """
+        this function ... TODO
+
+        Parameters
+        ----------
+        X_matrix : np.array()
+            TODO of shape ()
+        y_vec : np.array()
+            TODO of shape ()
+
+        Returns
+        ----------
+        np.array()
+            returns TODO of shape ()
+        """
         if ignore_nan:
             return np.nanmean((y_pred - y_true) ** 2)
         else:
@@ -429,6 +413,7 @@ class leading_indicator_miner:
             else:
                 x_matrix_this_iter = np.column_stack([intercept_var, x_vec_this_iter])
 
+            # this assertion will improve the user experience but is too computationally expensive (so I commented it out)
             # assert np.linalg.det(
             #    np.matmul(x_matrix_this_iter.transpose(), x_matrix_this_iter)
             # ), "X matrix contains perfect multicollinearity (reduce number of knots)"
@@ -555,15 +540,15 @@ class leading_indicator_miner:
 
         Parameters
         ----------
-        X : np.array(), float
+        X : np.array() of floats
             Numpy array with each row a consecutive time point and each column a predictor
-        X_varnames : list, str
+        X_varnames : list of str
             List (of strings) of length X.shape[1] containing the names of the columns (variables) in input [X] - these are used
 
         Returns
         ----------
-        np.array(), float
-            returns a numpy array of predictions, where each column of the array is the series of predictions from on of the leading indicators
+        np.array() of floats
+            returns a numpy array of predictions, where each column of the array is the series of predictions from one of the leading indicators in the best leading indicators set
             since the number of predictions differs per leading indicator (due to the length of the leading effect), the array has shape (largest_lead_effect_time_amongst_leading_indicators, n_leading_indicators)
         """
         max_lead_time = max(
