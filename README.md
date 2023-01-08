@@ -1,16 +1,16 @@
 # schuberts_leader
-&lt;&lt;under construction>> A Lightweight Framework for Discovering Leading Indicator Variables
+&lt;&lt;under construction>> A Lightweight Framework for Automatic Discovery of Leading Indicators
 
-**schuberts_leader** is a package with the following aims:
+A **leading indicator** is a variable which is predictive of a future outcome. For example, the number of building permit applications might be predictive of the future demand for housing. 
 
-* Depends on no other packages aside from [numpy](https://github.com/numpy/numpy)
+[schuberts_leader](https://github.com/J-sephB-lt-n/schuberts_leader) ...TODO
 
-* Robustly performs a single task: 
-	
-	- detection of individual variables in tabular time-series data which have a leading non-linear correlation with a chosen univariate time-series outcome variable
+## Requirements
 
-* Does not try to do too much: 
+```
+python: >=3.7
+numpy: >=1.2
+```
 
-	- Does not include optional extraneous features surrounding the core functionality
-	
-	o Does not make design decisions for the user (e.g. does not attempt to detect or avoid spurious correlations by removing trend and/or seasonality)
+## Example Usage
+TODO
