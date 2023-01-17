@@ -15,7 +15,7 @@ def simulate_leading_indicator_data(
     this function simulates multivariate feature data (X), in which some of the variables have a with a noisy time-lagged monotonic relationship with a simulated response/outcome variable (y)
     y is modelled either as a random gaussian walk starting at y=0 with each step Normal(0,1) or as independent draws from Normal(0,1)
     x variables are modelled directly from y if they are leading indicators, otherwise either as a random gaussian walk starting at x=0 with each step Normal(0,1) or as independent draws from Normal(0,1)
-    random gaussian noise - randomly drawn from a Normal(0,noise_std_dev) distribution - is added to the
+    random gaussian noise - randomly drawn from a Normal(0,[noise_std_dev]) distribution - is (optionally) added to the x variables to obscure the deterministic relationship with y
 
     Parameters
     ----------
@@ -26,29 +26,28 @@ def simulate_leading_indicator_data(
     n_leading_indicators : int
         number of predictors which are leading indicators of (i.e. predictive of) the response/outcome variable y
     lagged_effect_time_min_max : tuple containing 2 integers
-        the shortest and longest allowable length of (simulated) lagged relationship between a leading indicator (x) and the outcome (y)
+        the shortest and longest allowable length of (simulated) lagged relationship between any leading indicator (x) and the outcome (y)
         example: lagged_effect_time_min_max=(1,19)
     n_y_breakpoints : int
-        the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation
-        between randomly chosen monotone increasing (or decreasing) breakpoints
-        this parameter defines the number of breakpoints
+        the monotonic relationship between x (leading indicator) and y (outcome) is a linear interpolation between randomly chosen monotone increasing (or decreasing) breakpoints
+        this parameter [n_y_breakpoints] defines the number of breakpoints used
     y_sim_method : str
-        one of {"independent_gaussian","gaussian_random_walk"}
         method used to simulate the response/outcome variable (y)
-        one of      1. random gaussian walk starting at y=0 with each step a random draw from Normal(0,1)
-                    2. each value an independent random draw from Normal(0,1)
+        one of:
+            "gaussian_random_walk": random gaussian walk starting at y=0 with each step a random draw from Normal(0,1)
+            "independent_gaussian": each value an independent random draw from Normal(0,1)
     x_sim_method : str
-        one of {"independent_gaussian","gaussian_random_walk"}
         method used to simulate each feature (independent) variables (X)
-        one of      1. random gaussian walk starting at x=0 with each step a random draw from Normal(0,1)
-                    2. each value an independent random draw from Normal(0,1)
+        one of:
+            "gaussian_random_walk": random gaussian walk starting at x=0 with each step a random draw from Normal(0,1)
+            "independent_gaussian": each value is an independent random draw from Normal(0,1)
     noise_std_dev : float
-        the standard deviation of the random gaussian noise added to
+        the standard deviation of the random gaussian noise added to leading indicators to obscure their deterministic relationship with outcome y
 
     Returns
     ----------
     dict, numpy.array(), numpy.array()
-        the first returned element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y). The key in the dict. is the index of the leading indicator in the matrix of predictors (X)
+        the first returned element is a dictionary describing the simulated relationships between the (leading) predictor variables (X) and the outcome (y). The key in the dict is the index of the leading indicator in the matrix of predictors (X)
         the second returned element is a 1-D numpy array containing the simulated outcome (y), of shape (n_time_points,)
         the third returned element is a 2-D numpy array of shape (n_time_points, n_predictors)
     """
